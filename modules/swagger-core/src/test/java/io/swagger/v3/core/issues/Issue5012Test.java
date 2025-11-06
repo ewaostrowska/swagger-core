@@ -105,7 +105,7 @@ public class Issue5012Test {
     }
 
     // Minimal test model - only what's needed to reproduce the bug
-    static class MyModel {
+    public static class MyModel {
         @ArraySchema(
             arraySchema = @Schema(
                 deprecated = true,
