@@ -5,6 +5,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.models.media.JsonSchema;
 import org.testng.annotations.Test;
 
+import java.util.Map;
+
 import static org.testng.Assert.*;
 
 /**
@@ -26,8 +28,8 @@ public class Issue4820Test {
      */
     @Test
     public void testNumericStringExampleInterpretedAsInteger() {
-        var converter = ModelConverters.getInstance(true);
-        var schemas = converter.read(TestDtoWithNumericExample.class);
+        ModelConverters converter = ModelConverters.getInstance(true);
+        Map<String, io.swagger.v3.oas.models.media.Schema> schemas = converter.read(TestDtoWithNumericExample.class);
         
         assertNotNull(schemas);
         assertNotNull(schemas.get("TestDtoWithNumericExample"));
@@ -54,8 +56,8 @@ public class Issue4820Test {
      */
     @Test
     public void testNonNumericStringExampleWorksCorrectly() {
-        var converter = ModelConverters.getInstance(true);
-        var schemas = converter.read(TestDtoWithNonNumericExample.class);
+        ModelConverters converter = ModelConverters.getInstance(true);
+        Map<String, io.swagger.v3.oas.models.media.Schema> schemas = converter.read(TestDtoWithNonNumericExample.class);
         
         assertNotNull(schemas);
         assertNotNull(schemas.get("TestDtoWithNonNumericExample"));
@@ -79,16 +81,50 @@ public class Issue4820Test {
     /**
      * Model with numeric string example - demonstrates the bug
      */
-    record TestDtoWithNumericExample(
-            @Schema(example = "1234", type = "string") String name,
-            int age
-    ) {}
+    public static class TestDtoWithNumericExample {
+        @Schema(example = "1234", type = "string")
+        private String name;
+        private int age;
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public int getAge() {
+            return age;
+        }
+
+        public void setAge(int age) {
+            this.age = age;
+        }
+    }
 
     /**
      * Model with non-numeric string example - works correctly
      */
-    record TestDtoWithNonNumericExample(
-            @Schema(example = "notANumber") String name,
-            int age
-    ) {}
+    public static class TestDtoWithNonNumericExample {
+        @Schema(example = "notANumber")
+        private String name;
+        private int age;
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public int getAge() {
+            return age;
+        }
+
+        public void setAge(int age) {
+            this.age = age;
+        }
+    }
 }
