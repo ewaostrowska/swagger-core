@@ -281,6 +281,7 @@ public class AnnotatedType {
                 schemaProperty == that.schemaProperty &&
                 isSubtype == that.isSubtype &&
                 Objects.equals(type, that.type) &&
+                Objects.equals(parent, that.parent) &&
                 Objects.equals(thisAnnotatinons, thatAnnotatinons) &&
                 Objects.equals(jsonViewAnnotation, that.jsonViewAnnotation) &&
                 (!schemaProperty || Objects.equals(propertyName, that.propertyName));
@@ -289,6 +290,6 @@ public class AnnotatedType {
     @Override
     public int hashCode() {
         List<Annotation> processedAnnotations = getProcessedAnnotations(this.ctxAnnotations);
-        return Objects.hash(type, jsonViewAnnotation, includePropertiesWithoutJSONView, processedAnnotations, schemaProperty, isSubtype, schemaProperty ? propertyName : null);
+        return Objects.hash(type, parent, jsonViewAnnotation, includePropertiesWithoutJSONView, processedAnnotations, schemaProperty, isSubtype, schemaProperty ? propertyName : null);
     }
 }

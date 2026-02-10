@@ -1,6 +1,7 @@
 package io.swagger.v3.core.converting;
 
 import io.swagger.v3.core.converter.AnnotatedType;
+import io.swagger.v3.oas.models.media.Schema;
 import org.testng.annotations.Test;
 
 import java.lang.annotation.Annotation;
@@ -147,5 +148,44 @@ public class AnnotatedTypeTest {
                 "When schemaProperty is true, objects with the same propertyName must be equal.");
         assertEquals(complexPropA.hashCode(), complexPropC.hashCode(),
                 "When schemaProperty is true, hash codes must be equal if propertyNames are the same.");
+    }
+
+    /**
+     * Tests that equals() and hashCode() include the parent field.
+     * This prevents cache hits from propagating annotations from one schema to another.
+     * Regression test for issue #5043.
+     */
+    @Test
+    public void testEquals_shouldCompareParentField() {
+        Schema<?> parentSchema1 = new Schema<>();
+        parentSchema1.setDeprecated(true);
+        
+        Schema<?> parentSchema2 = new Schema<>();
+        parentSchema2.setDeprecated(false);
+
+        Annotation annA = getAnnotationInstance(TestAnnA.class);
+        Annotation[] annotations = {annA};
+
+        AnnotatedType type1 = new AnnotatedType(String.class)
+                .ctxAnnotations(annotations)
+                .parent(parentSchema1);
+
+        AnnotatedType type2 = new AnnotatedType(String.class)
+                .ctxAnnotations(annotations)
+                .parent(parentSchema2);
+
+        AnnotatedType type3 = new AnnotatedType(String.class)
+                .ctxAnnotations(annotations)
+                .parent(null);
+
+        assertNotEquals(type1, type2,
+                "Objects with different parent schemas must not be equal.");
+        assertNotEquals(type1.hashCode(), type2.hashCode(),
+                "Hash codes must be different if parent schemas differ.");
+        
+        assertNotEquals(type1, type3,
+                "Objects with null parent must not equal objects with non-null parent.");
+        assertNotEquals(type1.hashCode(), type3.hashCode(),
+                "Hash codes must be different when one has null parent.");
     }
 }
