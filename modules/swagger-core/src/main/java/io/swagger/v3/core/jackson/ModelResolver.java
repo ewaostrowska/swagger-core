@@ -464,6 +464,36 @@ public class ModelResolver extends AbstractModelConverter implements ModelConver
             return context.resolve(aType);
         }
 
+        // Special handling for java.util.stream.Stream - treat it as an array type
+        if (type.getRawClass().getName().equals("java.util.stream.Stream")) {
+            JavaType valueType = type.getContentType();
+            if (valueType != null) {
+                Schema items = context.resolve(new AnnotatedType()
+                        .type(valueType)
+                        .schemaProperty(annotatedType.isSchemaProperty())
+                        .ctxAnnotations(annotatedType.getCtxAnnotations())
+                        .skipSchemaName(true)
+                        .resolveAsRef(annotatedType.isResolveAsRef())
+                        .propertyName(annotatedType.getPropertyName())
+                        .jsonViewAnnotation(annotatedType.getJsonViewAnnotation())
+                        .components(annotatedType.getComponents())
+                        .resolveEnumAsRef(annotatedType.isResolveEnumAsRef())
+                        .parent(annotatedType.getParent()));
+                
+                if (items != null) {
+                    Schema arrayModel = new ArraySchema().items(items);
+                    if (openapi31) {
+                        arrayModel.specVersion(SpecVersion.V31);
+                    }
+                    arrayModel.name(name);
+                    if (resolvedArrayAnnotation != null) {
+                        resolveArraySchema(annotatedType, (ArraySchema) arrayModel, resolvedArrayAnnotation);
+                    }
+                    return arrayModel;
+                }
+            }
+        }
+
         if (type.isContainerType()) {
             // TODO currently a MapSchema or ArraySchema don't also support composed schema props (oneOf,..)
             hasCompositionKeywords = false;
@@ -529,7 +559,9 @@ public class ModelResolver extends AbstractModelConverter implements ModelConver
                 mapModel.name(name);
                 model = mapModel;
             } else if (valueType != null) {
-                if (ReflectionUtils.isSystemTypeNotArray(type) && !annotatedType.isSchemaProperty() && !annotatedType.isResolveAsRef()) {
+                // Special handling for java.util.stream.Stream - treat it as an array type
+                boolean isStreamType = type.getRawClass().getName().equals("java.util.stream.Stream");
+                if (!isStreamType && ReflectionUtils.isSystemTypeNotArray(type) && !annotatedType.isSchemaProperty() && !annotatedType.isResolveAsRef()) {
                     context.resolve(new AnnotatedType().components(annotatedType.getComponents()).type(valueType).jsonViewAnnotation(annotatedType.getJsonViewAnnotation()));
                     return null;
                 }
