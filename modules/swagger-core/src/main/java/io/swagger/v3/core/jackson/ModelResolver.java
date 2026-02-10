@@ -1147,11 +1147,33 @@ public class ModelResolver extends AbstractModelConverter implements ModelConver
                 StringUtils.isNotBlank(model.getName())) {
             if (context.getDefinedModels().containsKey(model.getName())) {
                 if (!Schema.SchemaResolution.INLINE.equals(resolvedSchemaResolution)) {
-                    model = new Schema().$ref(constructRef(model.getName()));
+                    // Preserve allOf and other composition keywords when creating reference
+                    Schema refSchema = new Schema().$ref(constructRef(model.getName()));
+                    if (model.getAllOf() != null && !model.getAllOf().isEmpty()) {
+                        refSchema.setAllOf(model.getAllOf());
+                    }
+                    if (model.getAnyOf() != null && !model.getAnyOf().isEmpty()) {
+                        refSchema.setAnyOf(model.getAnyOf());
+                    }
+                    if (model.getOneOf() != null && !model.getOneOf().isEmpty()) {
+                        refSchema.setOneOf(model.getOneOf());
+                    }
+                    model = refSchema;
                 }
             }
         } else if (model != null && model.get$ref() != null) {
-            model = new Schema().$ref(StringUtils.isNotEmpty(model.get$ref()) ? model.get$ref() : model.getName());
+            Schema refSchema = new Schema().$ref(StringUtils.isNotEmpty(model.get$ref()) ? model.get$ref() : model.getName());
+            // Preserve allOf and other composition keywords when creating reference
+            if (model.getAllOf() != null && !model.getAllOf().isEmpty()) {
+                refSchema.setAllOf(model.getAllOf());
+            }
+            if (model.getAnyOf() != null && !model.getAnyOf().isEmpty()) {
+                refSchema.setAnyOf(model.getAnyOf());
+            }
+            if (model.getOneOf() != null && !model.getOneOf().isEmpty()) {
+                refSchema.setOneOf(model.getOneOf());
+            }
+            model = refSchema;
         }
 
         if (model != null && resolvedArrayAnnotation != null) {
