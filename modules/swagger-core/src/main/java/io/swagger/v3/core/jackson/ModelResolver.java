@@ -465,7 +465,7 @@ public class ModelResolver extends AbstractModelConverter implements ModelConver
         }
 
         // Special handling for java.util.stream.Stream - treat it as an array type
-        if (type.getRawClass().getName().equals("java.util.stream.Stream")) {
+        if (isStreamType(type)) {
             JavaType valueType = type.getContentType();
             if (valueType != null) {
                 Schema items = context.resolve(new AnnotatedType()
@@ -560,8 +560,7 @@ public class ModelResolver extends AbstractModelConverter implements ModelConver
                 model = mapModel;
             } else if (valueType != null) {
                 // Special handling for java.util.stream.Stream - treat it as an array type
-                boolean isStreamType = type.getRawClass().getName().equals("java.util.stream.Stream");
-                if (!isStreamType && ReflectionUtils.isSystemTypeNotArray(type) && !annotatedType.isSchemaProperty() && !annotatedType.isResolveAsRef()) {
+                if (!isStreamType(type) && ReflectionUtils.isSystemTypeNotArray(type) && !annotatedType.isSchemaProperty() && !annotatedType.isResolveAsRef()) {
                     context.resolve(new AnnotatedType().components(annotatedType.getComponents()).type(valueType).jsonViewAnnotation(annotatedType.getJsonViewAnnotation()));
                     return null;
                 }
@@ -1181,30 +1180,14 @@ public class ModelResolver extends AbstractModelConverter implements ModelConver
                 if (!Schema.SchemaResolution.INLINE.equals(resolvedSchemaResolution)) {
                     // Preserve allOf and other composition keywords when creating reference
                     Schema refSchema = new Schema().$ref(constructRef(model.getName()));
-                    if (model.getAllOf() != null && !model.getAllOf().isEmpty()) {
-                        refSchema.setAllOf(model.getAllOf());
-                    }
-                    if (model.getAnyOf() != null && !model.getAnyOf().isEmpty()) {
-                        refSchema.setAnyOf(model.getAnyOf());
-                    }
-                    if (model.getOneOf() != null && !model.getOneOf().isEmpty()) {
-                        refSchema.setOneOf(model.getOneOf());
-                    }
+                    preserveCompositionKeywords(model, refSchema);
                     model = refSchema;
                 }
             }
         } else if (model != null && model.get$ref() != null) {
             Schema refSchema = new Schema().$ref(StringUtils.isNotEmpty(model.get$ref()) ? model.get$ref() : model.getName());
             // Preserve allOf and other composition keywords when creating reference
-            if (model.getAllOf() != null && !model.getAllOf().isEmpty()) {
-                refSchema.setAllOf(model.getAllOf());
-            }
-            if (model.getAnyOf() != null && !model.getAnyOf().isEmpty()) {
-                refSchema.setAnyOf(model.getAnyOf());
-            }
-            if (model.getOneOf() != null && !model.getOneOf().isEmpty()) {
-                refSchema.setOneOf(model.getOneOf());
-            }
+            preserveCompositionKeywords(model, refSchema);
             model = refSchema;
         }
 
@@ -3710,5 +3693,32 @@ public class ModelResolver extends AbstractModelConverter implements ModelConver
                 }
         }
         return reResolvedProperty;
+    }
+
+    /**
+     * Checks if the given JavaType represents java.util.stream.Stream.
+     */
+    private boolean isStreamType(JavaType type) {
+        try {
+            return java.util.stream.Stream.class.isAssignableFrom(type.getRawClass());
+        } catch (Exception e) {
+            // Fallback to string comparison if class loading fails
+            return type.getRawClass().getName().equals("java.util.stream.Stream");
+        }
+    }
+
+    /**
+     * Preserves composition keywords (allOf, anyOf, oneOf) from source to target schema.
+     */
+    private void preserveCompositionKeywords(Schema source, Schema target) {
+        if (source.getAllOf() != null && !source.getAllOf().isEmpty()) {
+            target.setAllOf(source.getAllOf());
+        }
+        if (source.getAnyOf() != null && !source.getAnyOf().isEmpty()) {
+            target.setAnyOf(source.getAnyOf());
+        }
+        if (source.getOneOf() != null && !source.getOneOf().isEmpty()) {
+            target.setOneOf(source.getOneOf());
+        }
     }
 }

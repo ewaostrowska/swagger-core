@@ -1,6 +1,7 @@
 package io.swagger.v3.core.converting;
 
 import io.swagger.v3.core.converter.AnnotatedType;
+import io.swagger.v3.oas.models.media.Schema;
 import org.testng.annotations.Test;
 
 import java.lang.annotation.Annotation;
