@@ -1,6 +1,7 @@
 package io.swagger.v3.core.converting;
 
 import io.swagger.v3.core.converter.AnnotatedType;
+import io.swagger.v3.oas.models.media.Schema;
 import org.testng.annotations.Test;
 
 import java.lang.annotation.Annotation;
@@ -147,5 +148,35 @@ public class AnnotatedTypeTest {
                 "When schemaProperty is true, objects with the same propertyName must be equal.");
         assertEquals(complexPropA.hashCode(), complexPropC.hashCode(),
                 "When schemaProperty is true, hash codes must be equal if propertyNames are the same.");
+    }
+
+    /**
+     * Documents issue #5043 - parent field in equals/hashCode would prevent
+     * cache hits from propagating annotations, but including it breaks ArrayOfSubclassTest.
+     * A more targeted solution is needed.
+     */
+    @Test(enabled = false)
+    public void testEquals_parentFieldIssue() {
+        Schema<?> parentSchema1 = new Schema<>();
+        parentSchema1.setDeprecated(true);
+        
+        Schema<?> parentSchema2 = new Schema<>();
+        parentSchema2.setDeprecated(false);
+
+        Annotation annA = getAnnotationInstance(TestAnnA.class);
+        Annotation[] annotations = {annA};
+
+        AnnotatedType type1 = new AnnotatedType(String.class)
+                .ctxAnnotations(annotations)
+                .parent(parentSchema1);
+
+        AnnotatedType type2 = new AnnotatedType(String.class)
+                .ctxAnnotations(annotations)
+                .parent(parentSchema2);
+
+        // Currently these are equal (parent not in equals/hashCode)
+        // Issue #5043 suggests they should not be equal to prevent annotation leakage
+        // However, including parent breaks ArrayOfSubclassTest
+        assertEquals(type1, type2);
     }
 }

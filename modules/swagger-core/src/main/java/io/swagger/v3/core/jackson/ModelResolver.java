@@ -464,6 +464,36 @@ public class ModelResolver extends AbstractModelConverter implements ModelConver
             return context.resolve(aType);
         }
 
+        // Special handling for java.util.stream.Stream - treat it as an array type
+        if (isStreamType(type)) {
+            JavaType valueType = type.getContentType();
+            if (valueType != null) {
+                Schema items = context.resolve(new AnnotatedType()
+                        .type(valueType)
+                        .schemaProperty(annotatedType.isSchemaProperty())
+                        .ctxAnnotations(annotatedType.getCtxAnnotations())
+                        .skipSchemaName(true)
+                        .resolveAsRef(annotatedType.isResolveAsRef())
+                        .propertyName(annotatedType.getPropertyName())
+                        .jsonViewAnnotation(annotatedType.getJsonViewAnnotation())
+                        .components(annotatedType.getComponents())
+                        .resolveEnumAsRef(annotatedType.isResolveEnumAsRef())
+                        .parent(annotatedType.getParent()));
+                
+                if (items != null) {
+                    Schema arrayModel = new ArraySchema().items(items);
+                    if (openapi31) {
+                        arrayModel.specVersion(SpecVersion.V31);
+                    }
+                    arrayModel.name(name);
+                    if (resolvedArrayAnnotation != null) {
+                        resolveArraySchema(annotatedType, (ArraySchema) arrayModel, resolvedArrayAnnotation);
+                    }
+                    return arrayModel;
+                }
+            }
+        }
+
         if (type.isContainerType()) {
             // TODO currently a MapSchema or ArraySchema don't also support composed schema props (oneOf,..)
             hasCompositionKeywords = false;
@@ -529,7 +559,8 @@ public class ModelResolver extends AbstractModelConverter implements ModelConver
                 mapModel.name(name);
                 model = mapModel;
             } else if (valueType != null) {
-                if (ReflectionUtils.isSystemTypeNotArray(type) && !annotatedType.isSchemaProperty() && !annotatedType.isResolveAsRef()) {
+                // Special handling for java.util.stream.Stream - treat it as an array type
+                if (!isStreamType(type) && ReflectionUtils.isSystemTypeNotArray(type) && !annotatedType.isSchemaProperty() && !annotatedType.isResolveAsRef()) {
                     context.resolve(new AnnotatedType().components(annotatedType.getComponents()).type(valueType).jsonViewAnnotation(annotatedType.getJsonViewAnnotation()));
                     return null;
                 }
@@ -1147,11 +1178,17 @@ public class ModelResolver extends AbstractModelConverter implements ModelConver
                 StringUtils.isNotBlank(model.getName())) {
             if (context.getDefinedModels().containsKey(model.getName())) {
                 if (!Schema.SchemaResolution.INLINE.equals(resolvedSchemaResolution)) {
-                    model = new Schema().$ref(constructRef(model.getName()));
+                    // Preserve allOf and other composition keywords when creating reference
+                    Schema refSchema = new Schema().$ref(constructRef(model.getName()));
+                    preserveCompositionKeywords(model, refSchema);
+                    model = refSchema;
                 }
             }
         } else if (model != null && model.get$ref() != null) {
-            model = new Schema().$ref(StringUtils.isNotEmpty(model.get$ref()) ? model.get$ref() : model.getName());
+            Schema refSchema = new Schema().$ref(StringUtils.isNotEmpty(model.get$ref()) ? model.get$ref() : model.getName());
+            // Preserve allOf and other composition keywords when creating reference
+            preserveCompositionKeywords(model, refSchema);
+            model = refSchema;
         }
 
         if (model != null && resolvedArrayAnnotation != null) {
@@ -3656,5 +3693,32 @@ public class ModelResolver extends AbstractModelConverter implements ModelConver
                 }
         }
         return reResolvedProperty;
+    }
+
+    /**
+     * Checks if the given JavaType represents java.util.stream.Stream.
+     */
+    private boolean isStreamType(JavaType type) {
+        try {
+            return java.util.stream.Stream.class.isAssignableFrom(type.getRawClass());
+        } catch (Exception e) {
+            // Fallback to string comparison if class loading fails
+            return type.getRawClass().getName().equals("java.util.stream.Stream");
+        }
+    }
+
+    /**
+     * Preserves composition keywords (allOf, anyOf, oneOf) from source to target schema.
+     */
+    private void preserveCompositionKeywords(Schema source, Schema target) {
+        if (source.getAllOf() != null && !source.getAllOf().isEmpty()) {
+            target.setAllOf(source.getAllOf());
+        }
+        if (source.getAnyOf() != null && !source.getAnyOf().isEmpty()) {
+            target.setAnyOf(source.getAnyOf());
+        }
+        if (source.getOneOf() != null && !source.getOneOf().isEmpty()) {
+            target.setOneOf(source.getOneOf());
+        }
     }
 }
